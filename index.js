@@ -23,28 +23,26 @@ mongoose.connect('mongodb+srv://viveksalwan63:iWCwO0yiUx75TL3H@smartcms.vx1vg.mo
     .then(result => console.log('mongo connected'))
     .catch(err => console.log('database connection error'))
 
-const verifyUser = (req, res, next) => {
-    const token = req.cookies.token
-    if (!token) {
-        return res.json(null)
-    } else {
+    const verifyToken = (req, res, next) => {
+        const token = req.cookies.token;
+        if (!token) return res.json(null); // No user if no token
+    
         jwt.verify(token, 'jwt-secret-key', (err, decoded) => {
-            if (err) {
-                console.log(err)
-            } else {
-                req.email = decoded.email;
-                req.name = decoded.name;
-                req.role = decoded.role
-                next();
-            }
-        })
-    }
-}
-
-
-app.get('/', verifyUser, (req, res) => {
-    return res.json({ email: req.email, name: req.name, role: req.role })
-})
+            if (err) return res.json(null);  // Invalid token
+            req.user = decoded;  // Attach the decoded user info to the request
+            next();
+        });
+    };
+    
+    // Use this middleware on routes that need authentication
+    app.get('/', verifyToken, (req, res) => {
+        if (req.user) {
+            res.json(req.user); // Send user data if authenticated
+        } else {
+            res.json(null);  // No user
+        }
+    });
+    
 
 app.post('/register', (req, res) => {
     const { name, email, password, } = req.body
@@ -68,32 +66,33 @@ app.post('/register', (req, res) => {
 })
 
 app.post('/login', (req, res) => {
-    const { email, password, } = req.body;
+    const { email, password } = req.body;
 
     RegisterModel.findOne({ email })
         .then(user => {
             if (user) {
                 return bcrypt.compare(password, user.password)
                     .then(response => {
-
                         if (response) {
-                            const token = jwt.sign({ email: user.email, name: user.name, }, 'jwt-secret-key', { expiresIn: '1d' })
+                            const token = jwt.sign({ email: user.email, name: user.name }, 'jwt-secret-key', { expiresIn: '1d' });
                             res.cookie('token', token, {
                                 httpOnly: true
-                            })
-                            res.json({ massage: 'logged in' })
+                            });
+                            res.json({ 
+                                massage: 'logged in',
+                                user: { email: user.email, name: user.name } // Send user details
+                            });
                         } else {
-                            res.json({ massage: 'Wrong Password' })
+                            res.json({ massage: 'Wrong Password' });
                         }
-                    })
-
-
+                    });
             } else {
-                res.json({ massage: 'User not Found' })
+                res.json({ massage: 'User not Found' });
             }
         })
+        .catch(err => res.status(500).json({ massage: 'Error', err }));
+});
 
-})
 
 app.get('/logout', (req, res) => {
     res.clearCookie('token');
