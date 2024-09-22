@@ -11,7 +11,7 @@ const ContactModel = require('./models/contacts');
 const app = express();
 
 app.use(cors({
-    origin: ['http://localhost:3000'],
+    origin: ['https://smartcms-frontend.netlify.app'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
 }));
